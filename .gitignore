@@ -45,6 +45,7 @@ override.tf.json
 data/raw/**
 data/processed/**
 data/pmtiles/**
+data/sources/**
 
 ## Keep template folder structure in git
 !data/raw/.gitkeep
@@ -53,3 +54,4 @@ data/pmtiles/**
 
 
 docs/folderdirectory.md
+docs/*.txt
