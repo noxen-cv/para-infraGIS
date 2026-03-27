@@ -1,0 +1,55 @@
+## OS / Editor
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+## Logs / Temp
+*.log
+*.tmp
+*.temp
+tmp/
+
+## Dependency / Build outputs
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+## Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+## Terraform state and secrets
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+## Azure deployment artifacts (local only)
+.azure/
+*.publishsettings
+
+## GIS heavy data and generated tiles
+*.pbf
+*.mbtiles
+*.pmtiles
+data/raw/**
+data/processed/**
+data/pmtiles/**
+
+## Keep template folder structure in git
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/pmtiles/.gitkeep
+
+
+docs/folderdirectory.md
