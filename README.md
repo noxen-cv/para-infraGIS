@@ -21,6 +21,16 @@ chmod +x scripts/deploy/azure_publish_style.sh
 scripts/deploy/azure_publish_style.sh all
 ```
 
+## Client Implementation
+
+To use this infrastructure in the mobile app, point the MapLibre `styleURL` to:
+
+`https://paragisstorage.blob.core.windows.net/maps/v1/style.json`
+
+No local map data needs to be bundled with the APK/IPA.
+
+Detailed guide: `docs/api/client-integration.md`
+
 --
 
 More details comming soon!
