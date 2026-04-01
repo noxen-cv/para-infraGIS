@@ -203,7 +203,7 @@ Environment variables:
   STORAGE_ACCOUNT     Blob storage account (default: paragisstorage)
   CONTAINER_NAME      Blob container (default: maps)
   STYLE_FILE          Local style file path (default: src/styles/v1/para-gold.json)
-  STYLE_DATE          Date component for versioned blob naming (default: today YYYYMMDD)
+  STYLE_DATE          Version token for naming (default: today YYYYMMDD; can include git hash)
   STYLE_BLOB_NAME     Versioned style blob name (default: style-vYYYYMMDD.json)
   STYLE_LATEST_BLOB   Stable alias blob name (default: style-latest.json)
   UPDATE_LATEST       true|false, publish stable alias (default: true)
