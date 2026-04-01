@@ -1,0 +1,80 @@
+name: Deploy Style
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_latest:
+        description: "Update style-latest.json alias"
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
+      storage_auth_mode:
+        description: "Storage auth mode (default login; key mode requires AZURE_STORAGE_KEY secret)"
+        type: choice
+        options:
+          - login
+          - key
+        default: login
+  push:
+    branches:
+      - main
+    paths:
+      - "src/styles/**"
+      - "scripts/deploy/azure_publish_style.sh"
+      - ".github/workflows/deploy-style.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  # Serialize deploys that can overwrite style-latest.json.
+  group: deploy-style-latest
+  cancel-in-progress: false
+
+jobs:
+  deploy-style:
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: paraInfraGIS-rg
+      STORAGE_ACCOUNT: paragisstorage
+      CONTAINER_NAME: maps
+      STYLE_FILE: src/styles/v1/para-gold.json
+      AZ_SUBSCRIPTION_ID: ${{ secrets.AZ_SUBSCRIPTION_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate style JSON exists
+        run: |
+          test -f "$STYLE_FILE"
+
+      - name: Validate style JSON syntax
+        run: |
+          jq empty "$STYLE_FILE"
+
+      - name: Azure login (service principal)
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Compute style version token
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_hash="${GITHUB_SHA::7}"
+          style_date="$(date +%Y%m%d)-${short_hash}"
+          echo "STYLE_DATE=${style_date}" >> "$GITHUB_ENV"
+
+      - name: Deploy style
+        shell: bash
+        env:
+          UPDATE_LATEST: ${{ github.event.inputs.update_latest || 'true' }}
+          STORAGE_AUTH_MODE: ${{ github.event.inputs.storage_auth_mode || 'login' }}
+          # Key fallback is optional. Leave empty for login mode.
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          set -euo pipefail
+          scripts/deploy/azure_publish_style.sh all
