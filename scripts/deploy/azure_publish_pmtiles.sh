@@ -14,6 +14,7 @@ MAX_AGE_SECONDS="${MAX_AGE_SECONDS:-3600}"
 AZ_SUBSCRIPTION_ID="${AZ_SUBSCRIPTION_ID:-}"
 STORAGE_AUTH_MODE="${STORAGE_AUTH_MODE:-login}"
 AZURE_STORAGE_KEY="${AZURE_STORAGE_KEY:-}"
+BLOB_OVERWRITE="${BLOB_OVERWRITE:-false}"
 
 declare -a STORAGE_AUTH_ARGS=()
 
@@ -130,12 +131,16 @@ upload_pmtiles() {
   log "Uploading PMTiles ($size bytes): $LOCAL_FILE -> $CONTAINER_NAME/$BLOB_NAME"
 
   ensure_storage_auth_args
+
+  local -a overwrite_arg=()
+  [[ "$BLOB_OVERWRITE" == "true" ]] && overwrite_arg=(--overwrite)
+
   az storage blob upload \
     --account-name "$STORAGE_ACCOUNT" \
     --container-name "$CONTAINER_NAME" \
     --name "$BLOB_NAME" \
     --file "$LOCAL_FILE" \
-    --overwrite false \
+    "${overwrite_arg[@]}" \
     "${STORAGE_AUTH_ARGS[@]}" \
     --output none
 
@@ -271,6 +276,7 @@ Environment overrides:
   AZ_SUBSCRIPTION_ID (default: current `az account show` subscription)
   STORAGE_AUTH_MODE (default: $STORAGE_AUTH_MODE; values: login|key)
   AZURE_STORAGE_KEY (optional; used when STORAGE_AUTH_MODE=key)
+  BLOB_OVERWRITE    (default: $BLOB_OVERWRITE; set to true to overwrite an existing blob)
 
 Examples:
   $(basename "$0") all
