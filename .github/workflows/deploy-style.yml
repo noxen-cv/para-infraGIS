@@ -62,30 +62,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          has_json="false"
+          has_valid_json="false"
           has_split="false"
 
-          if [[ -n "${AZURE_CREDENTIALS}" ]]; then
-            has_json="true"
+          if [[ -n "${AZURE_CREDENTIALS}" ]] && jq -e . >/dev/null 2>&1 <<< "${AZURE_CREDENTIALS}"; then
+            has_valid_json="true"
           fi
 
           if [[ -n "${AZURE_CLIENT_ID}" && -n "${AZURE_TENANT_ID}" && -n "${AZ_SUBSCRIPTION_ID}" ]]; then
             has_split="true"
           fi
 
-          if [[ "$has_json" == "false" && "$has_split" == "false" ]]; then
-            echo "Missing Azure auth secrets. Configure AZURE_CREDENTIALS JSON or AZURE_CLIENT_ID + AZURE_TENANT_ID + AZ_SUBSCRIPTION_ID."
+          if [[ "$has_valid_json" == "false" && "$has_split" == "false" ]]; then
+            echo "Missing usable Azure auth secrets. Provide valid AZURE_CREDENTIALS JSON or AZURE_CLIENT_ID + AZURE_TENANT_ID + AZ_SUBSCRIPTION_ID."
             exit 1
           fi
 
+      - name: Select Azure auth mode
+        id: azure_auth
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${AZURE_CREDENTIALS}" ]] && jq -e . >/dev/null 2>&1 <<< "${AZURE_CREDENTIALS}"; then
+            echo "auth_method=json" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -n "${AZURE_CREDENTIALS}" ]]; then
+            echo "AZURE_CREDENTIALS is present but not valid JSON. Falling back to split service principal secrets."
+          fi
+
+          echo "auth_method=split" >> "$GITHUB_OUTPUT"
+
       - name: Azure login (AZURE_CREDENTIALS JSON)
-        if: ${{ env.AZURE_CREDENTIALS != '' }}
+        if: ${{ steps.azure_auth.outputs.auth_method == 'json' }}
         uses: azure/login@v2
         with:
           creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Azure login (split service principal secrets)
-        if: ${{ env.AZURE_CREDENTIALS == '' }}
+        if: ${{ steps.azure_auth.outputs.auth_method == 'split' }}
         uses: azure/login@v2
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
