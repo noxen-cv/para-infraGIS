@@ -133,7 +133,13 @@ upload_pmtiles() {
   ensure_storage_auth_args
 
   local -a overwrite_arg=()
-  [[ "$BLOB_OVERWRITE" == "true" ]] && overwrite_arg=(--overwrite)
+  # Explicitly set overwrite behavior; when false, the CLI will refuse to
+  # overwrite an existing blob (same as the previous hardcoded --overwrite false).
+  if [[ "$BLOB_OVERWRITE" == "true" ]]; then
+    overwrite_arg=(--overwrite true)
+  else
+    overwrite_arg=(--overwrite false)
+  fi
 
   az storage blob upload \
     --account-name "$STORAGE_ACCOUNT" \

@@ -49,7 +49,8 @@ jobs:
         run: |
           set -euo pipefail
           short_hash="${GITHUB_SHA::7}"
-          pmtiles_filename="philippines-$(date +%Y%m%d)-${short_hash}.pmtiles"
+          # Note: date is UTC (GitHub Actions runner timezone). This is intentional.
+          pmtiles_filename="philippines-$(date -u +%Y%m%d)-${short_hash}.pmtiles"
           pbf_url="${{ inputs.pbf_url || 'https://download.geofabrik.de/asia/philippines-latest.osm.pbf' }}"
           pbf_filename="${pbf_url##*/}"
           echo "pmtiles_filename=${pmtiles_filename}" >> "$GITHUB_OUTPUT"
