@@ -42,6 +42,9 @@ jobs:
       CONTAINER_NAME: maps
       STYLE_FILE: src/styles/v1/para-gold.json
       AZ_SUBSCRIPTION_ID: ${{ secrets.AZ_SUBSCRIPTION_ID }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
     steps:
       - name: Checkout repository
@@ -55,10 +58,39 @@ jobs:
         run: |
           jq empty "$STYLE_FILE"
 
-      - name: Azure login (service principal)
+      - name: Validate Azure auth secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          has_json="false"
+          has_split="false"
+
+          if [[ -n "${AZURE_CREDENTIALS}" ]]; then
+            has_json="true"
+          fi
+
+          if [[ -n "${AZURE_CLIENT_ID}" && -n "${AZURE_TENANT_ID}" && -n "${AZ_SUBSCRIPTION_ID}" ]]; then
+            has_split="true"
+          fi
+
+          if [[ "$has_json" == "false" && "$has_split" == "false" ]]; then
+            echo "Missing Azure auth secrets. Configure AZURE_CREDENTIALS JSON or AZURE_CLIENT_ID + AZURE_TENANT_ID + AZ_SUBSCRIPTION_ID."
+            exit 1
+          fi
+
+      - name: Azure login (AZURE_CREDENTIALS JSON)
+        if: ${{ env.AZURE_CREDENTIALS != '' }}
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS }}
+
+      - name: Azure login (split service principal secrets)
+        if: ${{ env.AZURE_CREDENTIALS == '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZ_SUBSCRIPTION_ID }}
 
       - name: Compute style version token
         shell: bash
