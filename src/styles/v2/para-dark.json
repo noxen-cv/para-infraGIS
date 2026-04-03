@@ -5,8 +5,6 @@
 		"para:theme": "para-dark-theme",
 		"para:version": "v2"
 	},
-	"glyphs": "https://paragisstorage.blob.core.windows.net/styles/fonts/{fontstack}/{range}.pbf",
-	"sprite": "https://paragisstorage.blob.core.windows.net/styles/sprites/para-theme-v1",
 	"sources": {
 		"para": {
 			"type": "vector",
