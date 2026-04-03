@@ -82,7 +82,21 @@ ensure_storage_auth_args() {
 
 glyph_url() {
   local blob_name="$1"
-  printf "https://%s.blob.core.windows.net/%s/%s" "$STORAGE_ACCOUNT" "$CONTAINER_NAME" "$blob_name"
+  local encoded_blob_name
+
+  if command -v python3 >/dev/null 2>&1; then
+    encoded_blob_name="$(python3 - "$blob_name" <<'PY'
+import sys
+import urllib.parse
+
+print(urllib.parse.quote(sys.argv[1], safe='/'))
+PY
+)"
+  else
+    encoded_blob_name="${blob_name// /%20}"
+  fi
+
+  printf "https://%s.blob.core.windows.net/%s/%s" "$STORAGE_ACCOUNT" "$CONTAINER_NAME" "$encoded_blob_name"
 }
 
 upload_fonts() {
