@@ -3,6 +3,11 @@ name: Deploy Style
 on:
   workflow_dispatch:
     inputs:
+      style_file:
+        description: "Optional style file path to deploy (for example src/styles/v2/para-dark.json). Leave empty to deploy all style JSON files."
+        type: string
+        required: false
+        default: "src/styles/para-latest.json"
       update_latest:
         description: "Update style-latest.json alias"
         type: choice
@@ -39,8 +44,7 @@ jobs:
     env:
       RESOURCE_GROUP: paraInfraGIS-rg
       STORAGE_ACCOUNT: paragisstorage
-      CONTAINER_NAME: maps
-      STYLE_FILE: src/styles/v1/para-gold.json
+      CONTAINER_NAME: styles
       AZ_SUBSCRIPTION_ID: ${{ secrets.AZ_SUBSCRIPTION_ID }}
       AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -50,15 +54,81 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate style JSON exists
+      - name: Resolve style deploy targets
+        id: targets
+        shell: bash
         run: |
-          test -f "$STYLE_FILE"
+          set -euo pipefail
+
+          declare -a files=()
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            requested="${{ github.event.inputs.style_file || '' }}"
+
+            if [[ -n "$requested" ]]; then
+              files+=("$requested")
+            else
+              mapfile -t files < <(find src/styles -type f -name '*.json' | sort)
+            fi
+          else
+            before_sha="${{ github.event.before }}"
+            target_file="src/styles/para-latest.json"
+            declare -a changed_files=()
+
+            if [[ -z "$before_sha" || "$before_sha" == "0000000000000000000000000000000000000000" ]]; then
+              mapfile -t changed_files < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" || true)
+            else
+              mapfile -t changed_files < <(git diff --name-only "$before_sha" "$GITHUB_SHA" || true)
+            fi
+
+            if printf '%s\n' "${changed_files[@]}" | grep -Fxq "$target_file"; then
+              files+=("$target_file")
+            fi
+          fi
+
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No style JSON deploy targets resolved."
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          printf '%s\n' "${files[@]}" | sed '/^$/d' | sort -u > /tmp/style_targets.txt
+          target_count="$(wc -l < /tmp/style_targets.txt | tr -d ' ')"
+
+          echo "count=${target_count}" >> "$GITHUB_OUTPUT"
+          {
+            echo "files<<EOF"
+            cat /tmp/style_targets.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Resolved style deploy targets:"
+          cat /tmp/style_targets.txt
+
+      - name: Validate style JSON exists
+        if: ${{ steps.targets.outputs.count != '0' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r style_file; do
+            [[ -n "$style_file" ]] || continue
+            test -f "$style_file"
+          done <<< "${{ steps.targets.outputs.files }}"
 
       - name: Validate style JSON syntax
+        if: ${{ steps.targets.outputs.count != '0' }}
+        shell: bash
         run: |
-          jq empty "$STYLE_FILE"
+          set -euo pipefail
+
+          while IFS= read -r style_file; do
+            [[ -n "$style_file" ]] || continue
+            jq empty "$style_file"
+          done <<< "${{ steps.targets.outputs.files }}"
 
       - name: Validate Azure auth secrets
+        if: ${{ steps.targets.outputs.count != '0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -80,6 +150,7 @@ jobs:
 
       - name: Select Azure auth mode
         id: azure_auth
+        if: ${{ steps.targets.outputs.count != '0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -96,13 +167,13 @@ jobs:
           echo "auth_method=split" >> "$GITHUB_OUTPUT"
 
       - name: Azure login (AZURE_CREDENTIALS JSON)
-        if: ${{ steps.azure_auth.outputs.auth_method == 'json' }}
+        if: ${{ steps.targets.outputs.count != '0' && steps.azure_auth.outputs.auth_method == 'json' }}
         uses: azure/login@v2
         with:
           creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Azure login (split service principal secrets)
-        if: ${{ steps.azure_auth.outputs.auth_method == 'split' }}
+        if: ${{ steps.targets.outputs.count != '0' && steps.azure_auth.outputs.auth_method == 'split' }}
         uses: azure/login@v2
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
@@ -110,6 +181,7 @@ jobs:
           subscription-id: ${{ env.AZ_SUBSCRIPTION_ID }}
 
       - name: Compute style version token
+        if: ${{ steps.targets.outputs.count != '0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -118,12 +190,35 @@ jobs:
           echo "STYLE_DATE=${style_date}" >> "$GITHUB_ENV"
 
       - name: Deploy style
+        if: ${{ steps.targets.outputs.count != '0' }}
         shell: bash
         env:
           UPDATE_LATEST: ${{ github.event.inputs.update_latest || 'true' }}
           STORAGE_AUTH_MODE: ${{ github.event.inputs.storage_auth_mode || 'login' }}
-          # Key fallback is optional. Leave empty for login mode.
-          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: |
           set -euo pipefail
-          scripts/deploy/azure_publish_style.sh all
+
+          if [[ "${{ steps.targets.outputs.count }}" == "0" ]]; then
+            echo "No style changes detected for deployment. Exiting."
+            exit 0
+          fi
+
+          while IFS= read -r style_file; do
+            [[ -n "$style_file" ]] || continue
+
+            style_key="$(basename "$style_file" .json)"
+            style_blob="${style_key}-v${STYLE_DATE}.json"
+            latest_blob="${style_key}-latest.json"
+
+            # Preserve legacy canonical alias for para-gold consumers.
+            if [[ "$style_key" == "para-gold" ]]; then
+              latest_blob="style-latest.json"
+            fi
+
+            echo "Deploying $style_file -> $style_blob (latest alias: $latest_blob)"
+
+            STYLE_FILE="$style_file" \
+            STYLE_BLOB_NAME="$style_blob" \
+            STYLE_LATEST_BLOB="$latest_blob" \
+            scripts/deploy/azure_publish_style.sh all
+          done <<< "${{ steps.targets.outputs.files }}"

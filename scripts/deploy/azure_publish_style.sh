@@ -5,17 +5,21 @@ set -euo pipefail
 
 RESOURCE_GROUP="${RESOURCE_GROUP:-paraInfraGIS-rg}"
 STORAGE_ACCOUNT="${STORAGE_ACCOUNT:-paragisstorage}"
-CONTAINER_NAME="${CONTAINER_NAME:-maps}"
-STYLE_FILE="${STYLE_FILE:-src/styles/v1/para-gold.json}"
+CONTAINER_NAME="${CONTAINER_NAME:-styles}"
+STYLE_FILE="${STYLE_FILE:-src/styles/para-latest.json}"
 STYLE_DATE="${STYLE_DATE:-$(date +%Y%m%d)}"
 STYLE_BLOB_NAME="${STYLE_BLOB_NAME:-style-v${STYLE_DATE}.json}"
 STYLE_LATEST_BLOB="${STYLE_LATEST_BLOB:-style-latest.json}"
+AUTO_INCREMENT_STYLE_BLOB="${AUTO_INCREMENT_STYLE_BLOB:-true}"
+STYLE_COUNTER_START="${STYLE_COUNTER_START:-1}"
+STYLE_COUNTER_PAD="${STYLE_COUNTER_PAD:-3}"
 UPDATE_LATEST="${UPDATE_LATEST:-true}"
 AZ_SUBSCRIPTION_ID="${AZ_SUBSCRIPTION_ID:-}"
 STORAGE_AUTH_MODE="${STORAGE_AUTH_MODE:-login}"
 AZURE_STORAGE_KEY="${AZURE_STORAGE_KEY:-}"
 
 declare -a STORAGE_AUTH_ARGS=()
+RESOLVED_STYLE_BLOB_NAME=""
 ACTION="${1:-all}"
 
 log() {
@@ -101,22 +105,75 @@ validate_style_json() {
 }
 
 versioned_style_url() {
-  printf "https://%s.blob.core.windows.net/%s/%s" "$STORAGE_ACCOUNT" "$CONTAINER_NAME" "$STYLE_BLOB_NAME"
+  printf "https://%s.blob.core.windows.net/%s/%s" "$STORAGE_ACCOUNT" "$CONTAINER_NAME" "$(effective_style_blob_name)"
 }
 
 latest_style_url() {
   printf "https://%s.blob.core.windows.net/%s/%s" "$STORAGE_ACCOUNT" "$CONTAINER_NAME" "$STYLE_LATEST_BLOB"
 }
 
-upload_versioned() {
-  validate_style_json
+effective_style_blob_name() {
+  if [[ -n "$RESOLVED_STYLE_BLOB_NAME" ]]; then
+    printf "%s" "$RESOLVED_STYLE_BLOB_NAME"
+    return 0
+  fi
+
+  printf "%s" "$STYLE_BLOB_NAME"
+}
+
+resolve_versioned_blob_name() {
+  local base_name ext stem counter counter_fmt candidate exists
+
+  if [[ "$AUTO_INCREMENT_STYLE_BLOB" != "true" ]]; then
+    RESOLVED_STYLE_BLOB_NAME="$STYLE_BLOB_NAME"
+    return 0
+  fi
+
+  if [[ ! "$STYLE_COUNTER_START" =~ ^[0-9]+$ || ! "$STYLE_COUNTER_PAD" =~ ^[0-9]+$ ]]; then
+    log "STYLE_COUNTER_START and STYLE_COUNTER_PAD must be numeric."
+    exit 1
+  fi
+
   ensure_storage_auth_args
 
-  log "Uploading versioned style: $STYLE_FILE -> $CONTAINER_NAME/$STYLE_BLOB_NAME"
+  base_name="$STYLE_BLOB_NAME"
+  ext=""
+  stem="$base_name"
+  if [[ "$base_name" == *.* ]]; then
+    ext=".${base_name##*.}"
+    stem="${base_name%.*}"
+  fi
+
+  counter="$STYLE_COUNTER_START"
+  while true; do
+    printf -v counter_fmt "%0${STYLE_COUNTER_PAD}d" "$counter"
+    candidate="${stem}-${counter_fmt}${ext}"
+    exists="$(az storage blob exists \
+      --account-name "$STORAGE_ACCOUNT" \
+      --container-name "$CONTAINER_NAME" \
+      --name "$candidate" \
+      "${STORAGE_AUTH_ARGS[@]}" \
+      --query exists \
+      -o tsv)"
+
+    if [[ "$exists" != "true" ]]; then
+      RESOLVED_STYLE_BLOB_NAME="$candidate"
+      return 0
+    fi
+
+    counter=$((counter + 1))
+  done
+}
+
+upload_versioned() {
+  validate_style_json
+  resolve_versioned_blob_name
+
+  log "Uploading versioned style: $STYLE_FILE -> $CONTAINER_NAME/$(effective_style_blob_name)"
   az storage blob upload \
     --account-name "$STORAGE_ACCOUNT" \
     --container-name "$CONTAINER_NAME" \
-    --name "$STYLE_BLOB_NAME" \
+    --name "$(effective_style_blob_name)" \
     --file "$STYLE_FILE" \
     --content-type "application/json" \
     --overwrite false \
@@ -201,10 +258,13 @@ Usage: $(basename "$0") [all|upload|verify]
 Environment variables:
   RESOURCE_GROUP      Azure resource group (default: paraInfraGIS-rg)
   STORAGE_ACCOUNT     Blob storage account (default: paragisstorage)
-  CONTAINER_NAME      Blob container (default: maps)
-  STYLE_FILE          Local style file path (default: src/styles/v1/para-gold.json)
+  CONTAINER_NAME      Blob container (default: styles)
+  STYLE_FILE          Local style file path (default: src/styles/para-latest.json)
   STYLE_DATE          Version token for naming (default: today YYYYMMDD; can include git hash)
-  STYLE_BLOB_NAME     Versioned style blob name (default: style-vYYYYMMDD.json)
+  STYLE_BLOB_NAME     Versioned style blob base name (default: style-vYYYYMMDD.json)
+  AUTO_INCREMENT_STYLE_BLOB true|false; when true, appends -NNN counter (default: true)
+  STYLE_COUNTER_START Counter start value for auto-increment (default: 1)
+  STYLE_COUNTER_PAD   Counter zero padding width (default: 3)
   STYLE_LATEST_BLOB   Stable alias blob name (default: style-latest.json)
   UPDATE_LATEST       true|false, publish stable alias (default: true)
   AZ_SUBSCRIPTION_ID  Optional explicit subscription id
@@ -214,6 +274,8 @@ Environment variables:
 Examples:
   $0 upload
   STYLE_DATE=20260331 $0 all
+  STYLE_BLOB_NAME=para-dark-v20260403.json $0 all
+  AUTO_INCREMENT_STYLE_BLOB=false STYLE_BLOB_NAME=style-v20260403-abcdef0.json $0 all
   STORAGE_AUTH_MODE=key UPDATE_LATEST=false $0 all
 EOF
 }
