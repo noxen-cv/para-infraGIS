@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Convert TTF fonts into Mapbox glyph PBF ranges and publish to Azure Blob.
+# Publish prebuilt glyph PBF ranges to Azure Blob.
 
 RESOURCE_GROUP="${RESOURCE_GROUP:-paraInfraGIS-rg}"
 STORAGE_ACCOUNT="${STORAGE_ACCOUNT:-paragisstorage}"
 CONTAINER_NAME="${CONTAINER_NAME:-fonts}"
-FONT_SOURCE_DIR="${FONT_SOURCE_DIR:-src/font}"
 GLYPH_BLOB_PREFIX="${GLYPH_BLOB_PREFIX:-fonts}"
 LOCAL_GLYPHS_DIR="${LOCAL_GLYPHS_DIR:-data/processed/glyphs}"
-GLYPH_CONVERTER_CMD="${GLYPH_CONVERTER_CMD:-build-glyphs \"{input}\" \"{output}\"}"
 AZ_SUBSCRIPTION_ID="${AZ_SUBSCRIPTION_ID:-}"
 STORAGE_AUTH_MODE="${STORAGE_AUTH_MODE:-login}"
 AZURE_STORAGE_KEY="${AZURE_STORAGE_KEY:-}"
@@ -87,63 +85,18 @@ glyph_url() {
   printf "https://%s.blob.core.windows.net/%s/%s" "$STORAGE_ACCOUNT" "$CONTAINER_NAME" "$blob_name"
 }
 
-assert_font_sources() {
-  if [[ ! -d "$FONT_SOURCE_DIR" ]]; then
-    log "Font source directory not found: $FONT_SOURCE_DIR"
-    exit 1
-  fi
-
-  if ! find "$FONT_SOURCE_DIR" -type f \( -name '*.ttf' -o -name '*.TTF' \) | grep -q .; then
-    log "No .ttf files found under $FONT_SOURCE_DIR"
-    exit 1
-  fi
-}
-
-run_converter() {
-  local input_ttf="$1"
-  local converter_cmd
-
-  converter_cmd="${GLYPH_CONVERTER_CMD//\{input\}/$input_ttf}"
-  converter_cmd="${converter_cmd//\{output\}/$LOCAL_GLYPHS_DIR}"
-
-  log "Converting $(basename "$input_ttf") to glyph PBF ranges"
-  bash -lc "$converter_cmd"
-}
-
-convert_fonts() {
-  assert_font_sources
-
-  require_cmd bash
-
-  rm -rf "$LOCAL_GLYPHS_DIR"
-  mkdir -p "$LOCAL_GLYPHS_DIR"
-
-  while IFS= read -r ttf_file; do
-    [[ -n "$ttf_file" ]] || continue
-    run_converter "$ttf_file"
-  done < <(find "$FONT_SOURCE_DIR" -type f \( -name '*.ttf' -o -name '*.TTF' \) | sort)
-
-  if ! find "$LOCAL_GLYPHS_DIR" -type f -name '*.pbf' | grep -q .; then
-    log "No glyph .pbf files were generated in $LOCAL_GLYPHS_DIR"
-    log "Set GLYPH_CONVERTER_CMD to a working converter command (example: build-glyphs \"{input}\" \"{output}\")."
-    exit 1
-  fi
-
-  log "Glyph conversion complete: $LOCAL_GLYPHS_DIR"
-}
-
 upload_fonts() {
   ensure_storage_auth_args
 
   if [[ ! -d "$LOCAL_GLYPHS_DIR" ]]; then
-    log "Generated glyph directory not found: $LOCAL_GLYPHS_DIR"
-    log "Run convert action first or use ACTION=all."
+    log "Glyph directory not found: $LOCAL_GLYPHS_DIR"
+    log "Provide prebuilt .pbf files under LOCAL_GLYPHS_DIR and retry."
     exit 1
   fi
 
-  if ! find "$LOCAL_GLYPHS_DIR" -type f -name '*.pbf' | grep -q .; then
+  if [[ -z "$(find "$LOCAL_GLYPHS_DIR" -type f -name '*.pbf' -print -quit)" ]]; then
     log "No .pbf files found in $LOCAL_GLYPHS_DIR"
-    log "Run convert action first or use ACTION=all."
+    log "Provide prebuilt .pbf files under LOCAL_GLYPHS_DIR and retry."
     exit 1
   fi
 
@@ -228,26 +181,21 @@ verify_endpoint() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [all|convert|upload|verify]
+Usage: $(basename "$0") [all|upload|verify]
 
 Environment variables:
   RESOURCE_GROUP      Azure resource group (default: paraInfraGIS-rg)
   STORAGE_ACCOUNT     Blob storage account (default: paragisstorage)
   CONTAINER_NAME      Blob container for glyphs (default: fonts)
-  FONT_SOURCE_DIR     Directory containing source TTF files (default: src/font)
   GLYPH_BLOB_PREFIX   Blob prefix in fonts container (default: fonts)
-  LOCAL_GLYPHS_DIR    Local output directory for generated PBFs (default: data/processed/glyphs)
-  GLYPH_CONVERTER_CMD Converter command template with {input} and {output}
-                      (default: build-glyphs "{input}" "{output}")
+  LOCAL_GLYPHS_DIR    Local directory containing prebuilt PBFs (default: data/processed/glyphs)
   AZ_SUBSCRIPTION_ID  Optional explicit subscription id
   STORAGE_AUTH_MODE   login|key (default: login)
   AZURE_STORAGE_KEY   Optional key for STORAGE_AUTH_MODE=key
 
 Examples:
   $0 all
-  $0 convert
   STORAGE_AUTH_MODE=key $0 upload
-  GLYPH_CONVERTER_CMD='docker run --rm -v "$PWD":/work ghcr.io/maplibre/font-maker:latest --input "{input}" --output "{output}"' $0 all
 EOF
 }
 
@@ -259,12 +207,8 @@ main() {
 
   case "$ACTION" in
     all)
-      convert_fonts
       upload_fonts
       verify_endpoint
-      ;;
-    convert)
-      convert_fonts
       ;;
     upload)
       upload_fonts
