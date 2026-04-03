@@ -1,0 +1,399 @@
+{
+	"version": 8,
+	"name": "Para Daylight v2",
+	"metadata": {
+		"para:theme": "para-light-theme",
+		"para:version": "v2"
+	},
+	"glyphs": "https://paragisstorage.blob.core.windows.net/styles/fonts/{fontstack}/{range}.pbf",
+	"sprite": "https://paragisstorage.blob.core.windows.net/styles/sprites/para-theme-v1",
+	"sources": {
+		"para": {
+			"type": "vector",
+			"url": "pmtiles://https://paragisstorage.blob.core.windows.net/maps/philippines-260326.pmtiles"
+		},
+		"transit-overlay": {
+			"type": "geojson",
+			"data": {
+				"type": "FeatureCollection",
+				"features": []
+			}
+		}
+	},
+	"layers": [
+		{
+			"id": "background",
+			"type": "background",
+			"paint": {
+				"background-color": "#f0f4f8"
+			}
+		},
+		{
+			"id": "water",
+			"type": "fill",
+			"source": "para",
+			"source-layer": "water",
+			"paint": {
+				"fill-color": "#2e4390"
+			}
+		},
+		{
+			"id": "green-spaces",
+			"type": "fill",
+			"source": "para",
+			"source-layer": "landuse",
+			"filter": [
+				"in",
+				[
+					"get",
+					"class"
+				],
+				[
+					"literal",
+					[
+						"park",
+						"forest",
+						"wood",
+						"grass",
+						"recreation_ground",
+						"cemetery"
+					]
+				]
+			],
+			"paint": {
+				"fill-color": "#7a8a5e",
+				"fill-opacity": 0.22
+			}
+		},
+		{
+			"id": "roads",
+			"type": "line",
+			"source": "para",
+			"source-layer": "transportation",
+			"layout": {
+				"line-cap": "round",
+				"line-join": "round"
+			},
+			"paint": {
+				"line-color": [
+					"match",
+					[
+						"get",
+						"class"
+					],
+					"motorway",
+					"#2f3a4b",
+					"trunk",
+					"#445067",
+					"primary",
+					"#5d6b83",
+					"secondary",
+					"#78869c",
+					"tertiary",
+					"#98a4b7",
+					"residential",
+					"#b9c2d0",
+					"service",
+					"#c9d0dc",
+					"#d9dee7"
+				],
+				"line-width": [
+					"interpolate",
+					[
+						"linear"
+					],
+					[
+						"zoom"
+					],
+					12,
+					[
+						"match",
+						[
+							"get",
+							"class"
+						],
+						"motorway",
+						2.5,
+						"trunk",
+						2,
+						"primary",
+						1.4,
+						"secondary",
+						1,
+						0.6
+					],
+					18,
+					[
+						"match",
+						[
+							"get",
+							"class"
+						],
+						"motorway",
+						11,
+						"trunk",
+						9,
+						"primary",
+						7,
+						"secondary",
+						5,
+						3
+					]
+				],
+				"line-opacity": 0.88
+			}
+		},
+		{
+			"id": "transit-route-corridor",
+			"type": "line",
+			"source": "transit-overlay",
+			"maxzoom": 11,
+			"layout": {
+				"line-cap": "round",
+				"line-join": "round"
+			},
+			"paint": {
+				"line-color": "#e0b141",
+				"line-width": [
+					"interpolate",
+					[
+						"linear"
+					],
+					[
+						"zoom"
+					],
+					5,
+					3,
+					10,
+					8
+				],
+				"line-opacity": 0.7
+			}
+		},
+		{
+			"id": "3d-buildings",
+			"type": "fill-extrusion",
+			"source": "para",
+			"source-layer": "building",
+			"minzoom": 15,
+			"paint": {
+				"fill-extrusion-color": "#c7d0dc",
+				"fill-extrusion-height": [
+					"coalesce",
+					[
+						"get",
+						"render_height"
+					],
+					[
+						"get",
+						"height"
+					],
+					0
+				],
+				"fill-extrusion-base": [
+					"coalesce",
+					[
+						"get",
+						"render_min_height"
+					],
+					[
+						"get",
+						"min_height"
+					],
+					0
+				],
+				"fill-extrusion-opacity": 0.84
+			}
+		},
+		{
+			"id": "poi-neutral",
+			"type": "circle",
+			"source": "para",
+			"source-layer": "poi",
+			"minzoom": 13,
+			"paint": {
+				"circle-radius": [
+					"interpolate",
+					[
+						"linear"
+					],
+					[
+						"zoom"
+					],
+					13,
+					1.5,
+					17,
+					3
+				],
+				"circle-color": "#708099",
+				"circle-opacity": 0.65
+			}
+		},
+		{
+			"id": "place-labels",
+			"type": "symbol",
+			"source": "para",
+			"source-layer": "place",
+			"filter": [
+				"in",
+				[
+					"get",
+					"class"
+				],
+				[
+					"literal",
+					[
+						"city",
+						"town",
+						"state"
+					]
+				]
+			],
+			"layout": {
+				"icon-image": "label-pill-light",
+				"icon-anchor": "center",
+				"text-field": [
+					"coalesce",
+					[
+						"get",
+						"name:en"
+					],
+					[
+						"get",
+						"name"
+					]
+				],
+				"text-font": [
+					"Cubao Regular",
+					"Inter Regular"
+				],
+				"text-size": [
+					"interpolate",
+					[
+						"linear"
+					],
+					[
+						"zoom"
+					],
+					5,
+					10,
+					10,
+					14
+				],
+				"text-anchor": "center",
+				"text-allow-overlap": false,
+				"icon-allow-overlap": false,
+				"text-padding": 2
+			},
+			"paint": {
+				"text-color": "#0f172a"
+			}
+		},
+		{
+			"id": "road-labels",
+			"type": "symbol",
+			"source": "para",
+			"source-layer": "transportation_name",
+			"minzoom": 12,
+			"layout": {
+				"symbol-placement": "line",
+				"text-field": [
+					"coalesce",
+					[
+						"get",
+						"name:en"
+					],
+					[
+						"get",
+						"name"
+					]
+				],
+				"text-font": [
+					"Inter Regular"
+				],
+				"text-size": 11,
+				"text-allow-overlap": false
+			},
+			"paint": {
+				"text-color": "#334155"
+			}
+		},
+		{
+			"id": "transit-route",
+			"type": "line",
+			"source": "transit-overlay",
+			"minzoom": 10,
+			"layout": {
+				"line-cap": "round",
+				"line-join": "round"
+			},
+			"paint": {
+				"line-color": "#e0b141",
+				"line-width": [
+					"interpolate",
+					[
+						"linear"
+					],
+					[
+						"zoom"
+					],
+					10,
+					3,
+					16,
+					7
+				],
+				"line-opacity": 0.96
+			}
+		},
+		{
+			"id": "transit-stops",
+			"type": "symbol",
+			"source": "transit-overlay",
+			"filter": [
+				"==",
+				[
+					"geometry-type"
+				],
+				"Point"
+			],
+			"layout": {
+				"icon-image": "jeepney-stop-gold",
+				"icon-size": 0.75,
+				"icon-allow-overlap": true
+			}
+		},
+		{
+			"id": "transit-route-labels",
+			"type": "symbol",
+			"source": "transit-overlay",
+			"minzoom": 12,
+			"layout": {
+				"symbol-placement": "line",
+				"icon-image": "route-signboard-tricolor",
+				"icon-size": 0.7,
+				"text-field": [
+					"coalesce",
+					[
+						"get",
+						"route_short_name"
+					],
+					[
+						"get",
+						"route_id"
+					]
+				],
+				"text-font": [
+					"Quiapo Regular",
+					"Inter Bold"
+				],
+				"text-size": 10,
+				"text-anchor": "center",
+				"text-allow-overlap": true,
+				"icon-allow-overlap": true
+			},
+			"paint": {
+				"text-color": "#0f172a"
+			}
+		}
+	]
+}
