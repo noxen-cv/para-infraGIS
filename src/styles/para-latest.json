@@ -261,9 +261,7 @@
 					]
 				],
 				"text-font": [
-					"Cubao Free Variable Regular",
-                    "Inter Regular"
-
+					"Cubao Free Variable Regular"
 				],
 				"text-size": [
 					"interpolate",
@@ -376,8 +374,7 @@
 					]
 				],
 				"text-font": [
-					"Quiapo Free 2 Regular", 
-                    "Inter Regular"
+					"Quiapo Free 2 Regular"
 				],
 				"text-size": 10,
 				"text-anchor": "center",
