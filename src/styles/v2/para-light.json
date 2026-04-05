@@ -6,7 +6,6 @@
 		"para:version": "v2"
 	},
 	"glyphs": "https://paragisstorage.blob.core.windows.net/styles/fonts/{fontstack}/{range}.pbf",
-	"sprite": "https://paragisstorage.blob.core.windows.net/styles/sprites/para-theme-v1",
 	"sources": {
 		"para": {
 			"type": "vector",
@@ -250,8 +249,6 @@
 				]
 			],
 			"layout": {
-				"icon-image": "label-pill-light",
-				"icon-anchor": "center",
 				"text-field": [
 					"coalesce",
 					[
@@ -282,7 +279,6 @@
 				],
 				"text-anchor": "center",
 				"text-allow-overlap": false,
-				"icon-allow-overlap": false,
 				"text-padding": 2
 			},
 			"paint": {
@@ -357,9 +353,7 @@
 				"Point"
 			],
 			"layout": {
-				"icon-image": "jeepney-stop-gold",
-				"icon-size": 0.75,
-				"icon-allow-overlap": true
+				"visibility": "none"
 			}
 		},
 		{
@@ -369,8 +363,6 @@
 			"minzoom": 12,
 			"layout": {
 				"symbol-placement": "line",
-				"icon-image": "route-signboard-tricolor",
-				"icon-size": 0.7,
 				"text-field": [
 					"coalesce",
 					[
@@ -389,7 +381,7 @@
 				"text-size": 10,
 				"text-anchor": "center",
 				"text-allow-overlap": true,
-				"icon-allow-overlap": true
+				"text-padding": 1
 			},
 			"paint": {
 				"text-color": "#0f172a"

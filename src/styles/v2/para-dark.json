@@ -5,6 +5,7 @@
 		"para:theme": "para-dark-theme",
 		"para:version": "v2"
 	},
+	"glyphs": "https://paragisstorage.blob.core.windows.net/fonts/fonts/{fontstack}/{range}.pbf",
 	"sources": {
 		"para": {
 			"type": "vector",
@@ -248,8 +249,6 @@
 				]
 			],
 			"layout": {
-				"icon-image": "label-pill-dark",
-				"icon-anchor": "center",
 				"text-field": [
 					"coalesce",
 					[
@@ -262,8 +261,7 @@
 					]
 				],
 				"text-font": [
-					"Cubao Regular",
-					"Inter Regular"
+					"Cubao Free Variable Regular"
 				],
 				"text-size": [
 					"interpolate",
@@ -280,7 +278,6 @@
 				],
 				"text-anchor": "center",
 				"text-allow-overlap": false,
-				"icon-allow-overlap": false,
 				"text-padding": 2
 			},
 			"paint": {
@@ -355,9 +352,7 @@
 				"Point"
 			],
 			"layout": {
-				"icon-image": "jeepney-stop-gold",
-				"icon-size": 0.75,
-				"icon-allow-overlap": true
+				"visibility": "none"
 			}
 		},
 		{
@@ -367,8 +362,6 @@
 			"minzoom": 12,
 			"layout": {
 				"symbol-placement": "line",
-				"icon-image": "route-signboard-tricolor",
-				"icon-size": 0.7,
 				"text-field": [
 					"coalesce",
 					[
@@ -381,13 +374,12 @@
 					]
 				],
 				"text-font": [
-					"Quiapo Regular",
-					"Inter Bold"
+					"Quiapo Free 2 Regular"
 				],
 				"text-size": 10,
 				"text-anchor": "center",
 				"text-allow-overlap": true,
-				"icon-allow-overlap": true
+				"text-padding": 1
 			},
 			"paint": {
 				"text-color": "#f8fafc"
